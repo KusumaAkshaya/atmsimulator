@@ -5,6 +5,7 @@ class ATM
 {
     private:
     map<int, double> users;
+    map<int, deque<string>> history;
     int Pin;
     
     void trackUsers()
@@ -29,10 +30,59 @@ class ATM
         fout.close();
     }
 
+    void trackHistory()
+    {
+        ifstream fin("history.txt");
+        int pin;
+        string line;
+        while(getline(fin, line))
+        {
+            stringstream ss(line);
+            ss >> pin;
+            string entry; 
+            while(ss >> ws && getline(ss, entry, '|'))
+            {
+                if(!entry.empty())
+                {
+                    history[pin].push_back(entry);
+                }
+                if(history[pin].size() > 5) history[pin].pop_front();
+
+            }
+        }
+        fin.close();
+    }
+
+    void saveHistory()
+    {
+        ofstream fout("history.txt");
+        for(auto &h : history)
+        {
+            fout << h.first << " " ;
+            for(auto &entry : h.second)
+            {
+            fout << entry << "|";
+            }
+            fout << endl;
+        }
+        fout.close();
+    }
+
+    string getTime()
+    {
+        time_t now = time(0);
+        tm *localtm = localtime(&now);
+        char buffer[30];
+
+        strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", localtm);
+        return string(buffer);
+    }
+
     public:
        ATM()
        {
          trackUsers();
+         trackHistory();
        }
        bool login()
        {
@@ -67,6 +117,11 @@ class ATM
         {
             users[Pin] += amount;
             saveUsers();
+            stringstream ss;
+            ss << "Deposited ₹" << amount << " on " << getTime() ;
+            history[Pin].push_back(ss.str());
+            if(history[Pin].size() > 5) history[Pin].pop_front();
+            saveHistory();
             cout << "₹ " << amount << "deposited \n";
         }
         else
@@ -85,12 +140,31 @@ class ATM
          {
             users[Pin] -= amount;
             saveUsers();
+            stringstream ss;
+            ss << "Withdrew ₹" << amount << " on " << getTime();
+            history[Pin].push_back(ss.str());
+            if(history[Pin].size() > 5) history[Pin].pop_front();
+            saveHistory();
             cout << "₹ " << amount << " withdrawn \n";
          }
          else
          {
             cout << "Wrong amount entered";
          }
+       }
+
+       void lastTransactions()
+       {
+           cout << "\n Last 5 transactions for PIN" << Pin << ":\n" ;
+           if(history[Pin].empty())
+           {
+              cout << "No transactions available. \n";
+           } else {
+            for(string &entry : history[Pin])
+            {
+                cout << " - " << entry << endl;
+            }
+           }
        }
 
        void menu()
@@ -102,7 +176,8 @@ class ATM
            cout << "1. Check Balance \n";
            cout << "2. Deposit Money \n";
            cout << "3. Withdraw Money \n";
-           cout << "4. Exit \n";
+           cout << "4. Show last 5 transactions \n";
+           cout << "5. Exit \n";
            cout << "Enter your Option: ";
            cin >> option;
 
@@ -117,14 +192,17 @@ class ATM
             case 3 :
                 withdraw();
                 break;
-            case 4: 
+            case 4:
+                lastTransactions();
+                break;
+            case 5: 
                 cout << "log out \n";
                 break;
             default:
                 cout << "Invalid option" ;
 
            }
-        } while (option != 4);
+        } while (option != 5);
         
        }
 
